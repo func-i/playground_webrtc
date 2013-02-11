@@ -7,7 +7,6 @@
 
     <style>
       body{
-        background: rgb(228,25,16);
       }
       #main_container{
         position: relative;
@@ -17,17 +16,25 @@
         bottom: 0;
         width: 640px;
         height: 480px;
+        margin: 100px 320px;
+      }
+      #main_canvas{
+        position: absolute;
+        z-index:1;
+        height: 480px;
+        width: 640px;
+        margin: 0 auto;
         -webkit-transition: -webkit-transform 2s;
       }
-      #main_canvas, img{
+      iframe{
         position: absolute;
         top: 0;
         right: 0;
         left: 0px;
         bottom: 0;
         z-index:1;
-        height: 480px;
-        width: 640px;
+        height: 100%;
+        width: 100%;;
       }
       video{
         position: absolute;
@@ -39,17 +46,20 @@
         display: none;
       }
       #thumbnail_container{
-        position: relative;
+        position: absolute;
         top: 0px;
         right: 0;
-        left: 0px;
-        bottom: 0;
         z-index:1;
+        width: 128px;
+        height: 100%;
       }
       #thumbnail_container canvas{
         float: left;
         width: 128px;
         height: 96px;
+      }
+      #thumbnail_container canvas:hover{
+
       }
       #thumbnail_container canvas.active{
         border: 1px solid red;
@@ -59,16 +69,16 @@
   </head>
   <body>
     <div id="main_container" draggable="true">
-      <img src="logo_title.png" height="480" width="640"></img>
+      <iframe src="http://www.func-i.com"></iframe>
       <canvas id="main_canvas"></canvas>
       <video autoplay></video>
     </div>
     <div id="thumbnail_container">
-      <canvas id="black_and_white_canvas"></canvas>
-      <canvas id="green_screen_canvas"></canvas>
-      <canvas id="emboss_canvas"></canvas>
-      <canvas id="vignette_canvas"></canvas>
-      <canvas id="mirror_canvas"></canvas>
+      <canvas id="black_and_white_canvas" data-name="Black and White"></canvas>
+      <canvas id="green_screen_canvas" data-name="Green Screen"></canvas>
+      <canvas id="emboss_canvas" data-name="Embossed"></canvas>
+      <canvas id="vignette_canvas" data-name="Sepia"></canvas>
+      <canvas id="mirror_canvas" data-name="Mirrored"></canvas>
     </div>
 
     <script>
@@ -115,6 +125,9 @@
     };
 
     function drawThumbnails(){
+      if($('#thumbnail_container:visible').length == 0)
+        return;
+
       drawVideoToCanvas($('#black_and_white_canvas'));
       makeBlackAndWhite($('#black_and_white_canvas'));
 
@@ -129,13 +142,47 @@
 
       drawVideoToCanvas($('#mirror_canvas'));
       makeMirror($('#mirror_canvas'));
+
+      if($('canvas.over').length > 0){
+        mouseEntered($('canvas.over'));
+      }
+    };
+
+    function mouseEntered(canvas){
+      var context = canvas[0].getContext('2d');
+      var imgd = context.getImageData(0, 0, canvas.width(), canvas.height());
+      var pix = imgd.data;
+
+      var i = pix.length;
+      while(i--) {
+        if(i % 4 != 0)
+          continue;
+
+        var grayscale = pix[i] * .3 + pix[i+1] * .59 + pix[i+2] * .11;
+        pix[i] = grayscale + 60;   // red
+        pix[i+1] = grayscale;   // green
+        pix[i+2] = grayscale;   // blue
+        // alpha
+      }
+
+      context.putImageData(imgd, 0, 0);
+
+      context.fillStyle = "black";
+      context.textAlign = 'center';
+      context.font = "bold 16px Arial";
+      context.fillText(canvas.data('name'), canvas.width()/2, canvas.height()/2);
     };
 
     function makeBlackAndWhite(canvas){
       var context = canvas[0].getContext('2d');
       var imgd = context.getImageData(0, 0, canvas.width(), canvas.height());
       var pix = imgd.data;
-      for (var i = 0, n = pix.length; i < n; i += 4) {
+
+      var i = pix.length;
+      while(i--) {
+        if(i % 4 != 0)
+          continue;
+
         var grayscale = pix[i] * .3 + pix[i+1] * .59 + pix[i+2] * .11;
         pix[i] = grayscale;   // red
         pix[i+1] = grayscale;   // green
@@ -151,9 +198,11 @@
       var pix = imgd.data;
       var width = imgd.width;
       var fourWidth = width*4;
-      for (var i = 0, n = pix.length; i < n; i ++) {
+
+      var i = pix.length;
+      while(i--) {
         if( i%4 == 3 ) continue;
-        pix[i] = 127 + 2*pix[i] - pix[i + 4] - pix[i + fourWidth];
+        pix[i] = 127 + 2*pix[i] - pix[i - 4] - pix[i - fourWidth];
       }
       context.putImageData(imgd, 0, 0);
     };
@@ -162,8 +211,9 @@
       var context = canvas[0].getContext('2d');
       var imgd = context.getImageData(0, 0, canvas.width(), canvas.height());
       var pix = imgd.data;
+
       for (var i = 0, n = pix.length; i < n; i += 4) {
-        if(pix[i] > 180 && pix[i+1] < 100 && pix[i+2] < 100)
+        if(pix[i] > 180 && pix[i+1] < 120 && pix[i+2] < 120)
         {
           pix[i+3] = 0;
         }
@@ -204,7 +254,9 @@
       var pix = imgd.data;
       var width = 4*imgd.width;
 
-      for (var i = 0, n = pix.length; i < n; i += 4) {
+      var i = pix.length;
+      while(i--) {
+        if( i%4 != 0 ) continue;
         if(i%width > width/2)
           continue;
 
@@ -265,7 +317,7 @@
       var rotateAngle = false;
       $('#thumbnail_container canvas').click(function(){
 
-          $('#main_container').css({
+          $('#main_container canvas').css({
             '-webkit-transform': 'rotateY(' + (rotateAngle ? 0 : 180) + 'deg)'
           });
           rotateAngle = !rotateAngle;
@@ -278,6 +330,14 @@
               $(that).addClass('active');
           }, 500);
       });
+
+      $('#thumbnail_container canvas').mouseenter(function(){
+          $(this).addClass('over');
+      });
+      $('#thumbnail_container canvas').mouseleave(function(){
+          $(this).removeClass('over');
+      });
+
     });
     </script>
 
